@@ -57,7 +57,7 @@ cuda = torch.device('cuda')
 def predict_submission(model, submission_load):
     all_preds = []
     # model.eval()
-    for i, b in tqdm(enumerate(submission_load, 0), total=len(subset)/50):
+    for i, b in tqdm(enumerate(submission_load, 0), total=len(subset)/submission_load.batch_size):
         X, labels = b
         
         # if torch.cuda.is_available():
@@ -74,7 +74,7 @@ def make_submission_file(sample_submission_df, predictions):
         submissions.append(subrow)
     
     sample_submission_df['Predicted'] = submissions
-    sample_submission_df.to_csv('submission_ver2.csv', index=None)
+    sample_submission_df.to_csv('submission_ver3.csv', index=None)
     
     return sample_submission_df
 
@@ -152,8 +152,8 @@ SEED = int(time.time())
 DEV_MODE = True
 
 df = pd.read_csv(PATH_TO_META)
-df_train = df
-# df_train, df_validation = train_test_split(df, test_size=0.3, random_state=SEED)
+# df_train = df
+df_train, df_validation = train_test_split(df, test_size=0.3, random_state=SEED)
 df_submission = pd.read_csv(SAMPLE_SUBMI)
 
 #if DEV_MODE:
@@ -162,17 +162,17 @@ df_submission = pd.read_csv(SAMPLE_SUBMI)
 # df_submission = df_submission[:200]
 
 image_transform = transforms.Compose([
-            transforms.Resize(224),
+            transforms.Resize(299),
             transforms.ToTensor(),
         ])
 
-trainset = MultiBandMultiLabelDataset(df_train, base_path=PATH_TO_IMAGES, image_transform=image_transform)
+# trainset = MultiBandMultiLabelDataset(df_train, base_path=PATH_TO_IMAGES, image_transform=image_transform)
 # validationset = MultiBandMultiLabelDataset(df_validation, base_path=PATH_TO_IMAGES, image_transform=image_transform)
-# subset = MultiBandMultiLabelDataset(df_submission, base_path=PATH_TO_TEST_IMAGES, train_mode=False, image_transform=image_transform)
+subset = MultiBandMultiLabelDataset(df_submission, base_path=PATH_TO_TEST_IMAGES, train_mode=False, image_transform=image_transform)
 
-trainloader = DataLoader(trainset, collate_fn=trainset.collate_func, batch_size=150, num_workers=2)
-# validationloader = DataLoader(validationset, collate_fn=validationset.collate_func, batch_size=50, num_workers=3)
-# submissionloader = DataLoader(subset, collate_fn=subset.collate_func, batch_size=50, num_workers=2)
+# trainloader = DataLoader(trainset, collate_fn=trainset.collate_func, batch_size=32, num_workers=2)
+# validationloader = DataLoader(validationset, collate_fn=validationset.collate_func, batch_size=16, num_workers=8)
+submissionloader = DataLoader(subset, collate_fn=subset.collate_func, batch_size=20, num_workers=2)
 
 class SampleNet(nn.Module):
     def __init__(self):
@@ -185,24 +185,19 @@ class SampleNet(nn.Module):
         self.model = nn.Sequential(
             nn.BatchNorm2d(4),
             nn.Conv2d(4, 3, kernel_size=1, stride=1),
-            torchvision.models.resnet34(pretrained=True),
+            torchvision.models.inception_v3(pretrained=False, aux_logits=False),
             nn.Linear(1000, 512),
             nn.Linear(512, 128),
             nn.Linear(128, 28),
         ) # 파이팅!!!
 
     def forward(self, x):
-        # x = self.resnet(x)
-        # print(x.size())
-        # x = self.fc(x)
-        # print(x.size())
-        # return x 
         return self.model(x)
 
 def test():
     net = SampleNet().cuda()
     
-    net.load_state_dict(torch.load('./resnet3.pth'))
+    net.load_state_dict(torch.load('./inception1.pth'))
 
     # criterion = nn.CrossEntropyLoss()
     criterion = nn.MultiLabelSoftMarginLoss().cuda()
@@ -210,7 +205,7 @@ def test():
     optimizer = optim.Adam(net.parameters(), lr = 0.001)
     
     minimum_loss = 9999999.0
-    for epoch in range(325) :
+    for epoch in range(0) :
         running_loss = 0.0
         for i, data in tqdm(enumerate(trainloader, 0), total=int(len(trainset)/trainloader.batch_size)) :
             inputs, labels = data
@@ -230,17 +225,17 @@ def test():
             running_loss += loss.item()
         if minimum_loss > running_loss :
             minimum_loss = running_loss
-            torch.save(net.state_dict(), './resnet3.pth')
+            torch.save(net.state_dict(), './inception1.pth')
         print('[epoch : %d] loss : %.3f' %(epoch + 1, running_loss))
     print('Finished Training')
     
     # max_data = [0., 0.]
-    # for THRESHOLD in tqdm([0.1 + (0.01*i) for i in range(30)], total = 30) :
+    # for THRESHOLD in [0.1 + (0.01*i) for i in range(1)] :
     #     all_preds = []
     #     true = []
     #     # net.eval()
     
-    #     for data in validationloader :
+    #     for data in tqdm(validationloader, total=len(validationloader)) :
     #         inputs, labels = data
     #         inputs = inputs.cuda()
     #         labels = labels.cuda()
@@ -261,12 +256,12 @@ def test():
 
     
 
-    # submission_predictions =predict_submission(net, submissionloader)
-    # THRESHOLD = 0.2
-    # # print(submission_predictions)
-    # p = submission_predictions>THRESHOLD
-    # # print(p)
-    # submission_file = make_submission_file(sample_submission_df=df_submission, predictions=p)
+    submission_predictions =predict_submission(net, submissionloader)
+    THRESHOLD = 0.1
+    # print(submission_predictions)
+    p = submission_predictions>THRESHOLD
+    # print(p)
+    submission_file = make_submission_file(sample_submission_df=df_submission, predictions=p)
 
     # submission_file.head()
 

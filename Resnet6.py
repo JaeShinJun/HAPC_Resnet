@@ -170,7 +170,7 @@ trainset = MultiBandMultiLabelDataset(df_train, base_path=PATH_TO_IMAGES, image_
 # validationset = MultiBandMultiLabelDataset(df_validation, base_path=PATH_TO_IMAGES, image_transform=image_transform)
 # subset = MultiBandMultiLabelDataset(df_submission, base_path=PATH_TO_TEST_IMAGES, train_mode=False, image_transform=image_transform)
 
-trainloader = DataLoader(trainset, collate_fn=trainset.collate_func, batch_size=150, num_workers=2)
+trainloader = DataLoader(trainset, collate_fn=trainset.collate_func, batch_size=50, num_workers=2)
 # validationloader = DataLoader(validationset, collate_fn=validationset.collate_func, batch_size=50, num_workers=3)
 # submissionloader = DataLoader(subset, collate_fn=subset.collate_func, batch_size=50, num_workers=2)
 
@@ -185,7 +185,7 @@ class SampleNet(nn.Module):
         self.model = nn.Sequential(
             nn.BatchNorm2d(4),
             nn.Conv2d(4, 3, kernel_size=1, stride=1),
-            torchvision.models.resnet34(pretrained=True),
+            torchvision.models.resnet50(pretrained=True),
             nn.Linear(1000, 512),
             nn.Linear(512, 128),
             nn.Linear(128, 28),
@@ -202,7 +202,7 @@ class SampleNet(nn.Module):
 def test():
     net = SampleNet().cuda()
     
-    net.load_state_dict(torch.load('./resnet3.pth'))
+    # net.load_state_dict(torch.load('./resnet4.pth'))
 
     # criterion = nn.CrossEntropyLoss()
     criterion = nn.MultiLabelSoftMarginLoss().cuda()
@@ -230,7 +230,7 @@ def test():
             running_loss += loss.item()
         if minimum_loss > running_loss :
             minimum_loss = running_loss
-            torch.save(net.state_dict(), './resnet3.pth')
+            torch.save(net.state_dict(), './resnet4.pth')
         print('[epoch : %d] loss : %.3f' %(epoch + 1, running_loss))
     print('Finished Training')
     
