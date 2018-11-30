@@ -299,7 +299,7 @@ def scoring(model) :
 def test():
     net = SampleNet().cuda()
     
-    net = load_parameter(net, './MVL_resnet101_v1.pth')
+    # net = load_parameter(net, './MVL_resnet101_v1.pth')
     # net = load_parameter(net, './Resnet101_v1.pth')
 
     # criterion = nn.CrossEntropyLoss().cuda()
@@ -310,15 +310,15 @@ def test():
     # optimizer = optim.Adam(net.parameters(), lr = 0.001, weight_decay=1e-5)
 
     
-    # for epoch in range(100) :
-    #     running_loss = train(net, optimizer, criterion)
+    for epoch in range(100) :
+        running_loss = train(net, optimizer, criterion)
 
-    #     validation_loss, f1 = evaluate(net, optimizer, criterion)
+        validation_loss, f1 = evaluate(net, optimizer, criterion)
         
-    #     print('[epoch : %d] loss : %.3f' %(epoch + 1, running_loss))
-    #     print('validation_loss : %.3f' %(validation_loss))
-    #     print('f1_score : %.3f' %(f1))
-    # print('Finished Training')
+        print('[epoch : %d] loss : %.3f' %(epoch + 1, running_loss))
+        print('validation_loss : %.3f' %(validation_loss))
+        print('f1_score : %.3f' %(f1))
+    print('Finished Training')
     
     THRESHOLD = scoring(net)
     
