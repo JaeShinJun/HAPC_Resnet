@@ -95,7 +95,7 @@ def make_submission_file(sample_submission_df, predictions):
         submissions.append(subrow)
     
     sample_submission_df['Predicted'] = submissions
-    sample_submission_df.to_csv('submission_ver9.csv', index=None)
+    sample_submission_df.to_csv('submission_ver10.csv', index=None)
     
     return sample_submission_df
 
@@ -186,11 +186,11 @@ image_transform = transforms.Compose([
 
 trainset = MultiBandMultiLabelDataset(df_train, base_path=PATH_TO_IMAGES, image_transform=image_transform)
 validationset = MultiBandMultiLabelDataset(df_validation, base_path=PATH_TO_IMAGES, image_transform=image_transform)
-# subset = MultiBandMultiLabelDataset(df_submission, base_path=PATH_TO_TEST_IMAGES, train_mode=False, image_transform=image_transform)
+subset = MultiBandMultiLabelDataset(df_submission, base_path=PATH_TO_TEST_IMAGES, train_mode=False, image_transform=image_transform)
 
-trainloader = DataLoader(trainset, collate_fn=trainset.collate_func, batch_size=32, num_workers=4)
-validationloader = DataLoader(validationset, collate_fn=validationset.collate_func, batch_size=32, num_workers=4)
-# submissionloader = DataLoader(subset, collate_fn=subset.collate_func, batch_size=30, num_workers=2)
+trainloader = DataLoader(trainset, collate_fn=trainset.collate_func, batch_size=32, num_workers=2)
+validationloader = DataLoader(validationset, collate_fn=validationset.collate_func, batch_size=16, num_workers=2)
+submissionloader = DataLoader(subset, collate_fn=subset.collate_func, batch_size=16, num_workers=2)
 
 class SampleNet(nn.Module):
     def __init__(self):
@@ -207,7 +207,8 @@ class SampleNet(nn.Module):
         return self.model(x)
 
 def load_parameter(net, file_name) :
-    return net.load_state_dict(torch.load(file_name))
+    net.load_state_dict(torch.load(file_name))
+    return net
 
 def train(model, optimizer, criterion) :
     model.train()
@@ -231,7 +232,7 @@ def train(model, optimizer, criterion) :
     # if minimum_loss > running_loss :
     #     minimum_loss = running_loss
     #     torch.save(model.state_dict(), './inception2.pth')
-    torch.save(model.state_dict(), './Resnet34_v2.pth')
+    torch.save(model.state_dict(), './Resnet101_v1.pth')
     return running_loss
     
 def evaluate(model, optimizer, criterion) :
@@ -263,7 +264,7 @@ def evaluate(model, optimizer, criterion) :
 
         if(validation_loss < minimum_validation_loss) :
             minimum_validation_loss = validation_loss
-            torch.save(model.state_dict(), './MVL_resnet34_v2.pth')
+            torch.save(model.state_dict(), './MVL_resnet101_v1.pth')
     return validation_loss, f1
 
 def scoring(model) :
@@ -290,7 +291,7 @@ def scoring(model) :
         if f1 > max_data[0]:
             max_data[0] = f1
             max_data[1] = THRESHOLD
-        print('%.2f THRESHOLD score : %.5f' %(THRESHHOLD, max_data))
+        print('%.2f THRESHOLD score : %.5f' %(THRESHOLD, f1))
         
     print('%.2f THRESHOLD Max score : %.5f' %(max_data[1], max_data[0]))
     return max_data[1]
@@ -298,34 +299,35 @@ def scoring(model) :
 def test():
     net = SampleNet().cuda()
     
-    # net = load_parameter(net, './MVL_resnet34_v2.pth')
+    net = load_parameter(net, './MVL_resnet101_v1.pth')
+    # net = load_parameter(net, './Resnet101_v1.pth')
 
     # criterion = nn.CrossEntropyLoss().cuda()
     # criterion = nn.MultiLabelSoftMarginLoss().cuda()
     criterion = nn.BCEWithLogitsLoss().cuda()
 
-    optimizer = optim.SGD(net.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4)
+    optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4)
     # optimizer = optim.Adam(net.parameters(), lr = 0.001, weight_decay=1e-5)
 
     
-    for epoch in range(100) :
-        running_loss = train(net, optimizer, criterion)
+    # for epoch in range(100) :
+    #     running_loss = train(net, optimizer, criterion)
 
-        validation_loss, f1 = evaluate(net, optimizer, criterion)
+    #     validation_loss, f1 = evaluate(net, optimizer, criterion)
         
-        print('[epoch : %d] loss : %.3f' %(epoch + 1, running_loss))
-        print('validation_loss : %.3f' %(validation_loss))
-        print('f1_score : %.3f' %(f1))
-    print('Finished Training')
+    #     print('[epoch : %d] loss : %.3f' %(epoch + 1, running_loss))
+    #     print('validation_loss : %.3f' %(validation_loss))
+    #     print('f1_score : %.3f' %(f1))
+    # print('Finished Training')
     
     THRESHOLD = scoring(net)
     
-    # submission_predictions = predict_submission(net, submissionloader)
-    # print(submission_predictions)
-    # p = submission_predictions>THRESHOLD
-    # print(p)
-    # submission_file = make_submission_file(sample_submission_df=df_submission, predictions=p)
+    submission_predictions = predict_submission(net, submissionloader)
+    print(submission_predictions)
+    p = submission_predictions>THRESHOLD
+    print(p)
+    submission_file = make_submission_file(sample_submission_df=df_submission, predictions=p)
 
-    # submission_file.head()
+    submission_file.head()
 
 test()
